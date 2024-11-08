@@ -1,0 +1,52 @@
+---
+title: "Task set 2"
+output: 
+  pdf_document: 
+    latex_engine: xelatex
+---
+
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(caret)
+library(readxl)
+
+# Load the data
+brexit_data <- read_excel("/Users/zhimajiang/Desktop/brexit.xlsx")
+
+# Ensure predictor variables are numeric
+brexit_data <- brexit_data %>% 
+  mutate(across(c(pct_leave75, unemp, fiscalcuts, Dmig_eu, pct_leave), ~suppressWarnings(as.numeric(.)))) %>% 
+  drop_na(pct_leave75, unemp, fiscalcuts, Dmig_eu, pct_leave)
+
+# Check for multicollinearity
+cor_matrix <- cor(brexit_data %>% select(pct_leave75, unemp, fiscalcuts, Dmig_eu), use = "complete.obs")
+print("Correlation Matrix:")
+print(cor_matrix)
+```
+
+```{r}
+# Task 2a: Estimate out-of-sample RMSE using 10-fold cross-validation
+set.seed(123)
+train_control <- trainControl(method = "cv", number = 10)
+lm_model <- train(pct_leave ~ pct_leave75, data = brexit_data, method = "lm", trControl = train_control)
+print(paste("Out-of-sample RMSE for leave vote share model: ", lm_model$results$RMSE))
+```
+
+```{r}
+# Task 2b: Fit three separate models predicting leave vote share in 2016
+models <- list(
+  unemp = train(pct_leave ~ pct_leave75 + unemp, data = brexit_data, method = "lm", trControl = train_control),
+  fiscalcuts = train(pct_leave ~ pct_leave75 + fiscalcuts, data = brexit_data, method = "lm", trControl = train_control),
+  Dmig_eu = train(pct_leave ~ pct_leave75 + Dmig_eu, data = brexit_data, method = "lm", trControl = train_control)
+)
+
+# Print RMSE values
+lapply(models, function(model) print(paste("RMSE for model: ", model$results$RMSE)))
+```
+
+```{r}
+# Task 2c: Compare models using AIC
+aic_values <- sapply(models, function(model) AIC(model$finalModel))
+print(aic_values)
+```
